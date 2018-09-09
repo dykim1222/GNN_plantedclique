@@ -35,7 +35,7 @@ parser = argparse.ArgumentParser()
 ####################################################################################
 ####################################################################################
 parser.add_argument('--num_features', nargs='?', const=1, type=int, default=16)       # num_features must be divisible by (1/reduction)^4=16
-parser.add_argument('--num_layers', nargs='?', const=1, type=int, default=40)
+parser.add_argument('--num_layers', nargs='?', const=1, type=int, default=30)
 parser.add_argument('--dd', nargs='?', const=1, type=str, default='delta')
 parser.add_argument('--tt', nargs='?', const=1, type=float, default=0.766)
 parser.add_argument('--ss', nargs='?', const=1, type=float, default=0.1)
@@ -50,7 +50,7 @@ parser.add_argument('--normalizer_name', nargs='?', const=1, type=str, default='
 parser.add_argument('--activation_name', nargs='?', const=1, type=str, default='relu')
 parser.add_argument('--max_iter', nargs='?', const=1, type=int, default=500000)
 parser.add_argument('--batch_size', nargs='?', const=1, type=int, default=1)
-parser.add_argument('--num_test', nargs='?', const=1, type=int, default=1000)
+parser.add_argument('--num_test', nargs='?', const=1, type=int, default=100)
 parser.add_argument('--N', nargs='?', const=1, type=int, default=1000)
 parser.add_argument('--mos', nargs='?', const=1, type=int, default=5)
 parser.add_argument('--track', nargs='?', const=1, type=int, default=0)
@@ -81,6 +81,7 @@ clique_size = parser_args.clique_size
 NUM_SAMPLES_test = parser_args.num_test
 N = parser_args.N
 M = parser_args.M
+M = 2*N
 mos = parser_args.mos
 J = parser_args.J
 Jd= parser_args.Jd
@@ -160,10 +161,13 @@ generator.extra_ops = extra_ops
 if mode == 'regular':
     # train
     gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
+    gnn2 = get_model(model_name+'2', num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
     weight_initializer = get_initializer(initializer, activation_name)
     gnn.apply(weight_initializer)
+    gnn2.apply(weight_initializer)
     optimizer = get_optimizer(gnn,lr,optimizer_name)
-    train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=max_iter, batch_size=batch_size, lr_decay = lr_decay, mos=mos)#10000
+    optimizer2 = get_optimizer(gnn2,lr,optimizer_name)
+    train(gnn, gnn2, optimizer, optimizer2, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=max_iter, batch_size=batch_size, lr_decay = lr_decay, mos=mos)#10000
 
     # # resume
     # path = load_path+'models/gnn.pt'
@@ -177,79 +181,79 @@ if mode == 'regular':
     # logger.overlap_train = data['overlap']
     # train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=max_iter, start_epoch=start_epoch, batch_size=batch_size, lr_decay = lr_decay, mos=mos)#, mode=mode)#10000
 
-elif mode == 'curriculum':
-    generator.tt = 1.0
-    gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
-    weight_initializer = get_initializer(initializer, activation_name)
-    gnn.apply(weight_initializer)
-    optimizer = get_optimizer(gnn,lr,optimizer_name)
-    train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=20003, batch_size=batch_size, lr_decay = lr_decay, mos=mos)
-
-    # resume
-    generator.tt = 0.9
-    path = load_path+'models/gnn.pt'
-    data = torch.load(path)
-    gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
-    gnn.load_state_dict(data['model'])
-    optimizer = get_optimizer(gnn,lr,optimizer_name)
-    optimizer.load_state_dict(data['optimizer'])
-    start_epoch = data['epoch']
-    logger.loss_train = data['loss']
-    logger.overlap_train = data['overlap']
-    train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=50003, start_epoch=start_epoch, batch_size=batch_size, lr_decay = lr_decay, mos=mos)
-
-    # resume
-    generator.tt = 0.8
-    path = load_path+'models/gnn.pt'
-    data = torch.load(path)
-    gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
-    gnn.load_state_dict(data['model'])
-    optimizer = get_optimizer(gnn,lr,optimizer_name)
-    optimizer.load_state_dict(data['optimizer'])
-    start_epoch = data['epoch']
-    logger.loss_train = data['loss']
-    logger.overlap_train = data['overlap']
-    train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=100003, start_epoch=start_epoch, batch_size=batch_size, lr_decay = lr_decay, mos=mos)
-
-    # resume
-    generator.tt = 0.7
-    path = load_path+'models/gnn.pt'
-    data = torch.load(path)
-    gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
-    gnn.load_state_dict(data['model'])
-    optimizer = get_optimizer(gnn,lr,optimizer_name)
-    optimizer.load_state_dict(data['optimizer'])
-    start_epoch = data['epoch']
-    logger.loss_train = data['loss']
-    logger.overlap_train = data['overlap']
-    train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=180003, start_epoch=start_epoch, batch_size=batch_size, lr_decay = lr_decay, mos=mos)
-
-    # resume
-    generator.tt = 0.6
-    path = load_path+'models/gnn.pt'
-    data = torch.load(path)
-    gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
-    gnn.load_state_dict(data['model'])
-    optimizer = get_optimizer(gnn,lr,optimizer_name)
-    optimizer.load_state_dict(data['optimizer'])
-    start_epoch = data['epoch']
-    logger.loss_train = data['loss']
-    logger.overlap_train = data['overlap']
-    train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=280003, start_epoch=start_epoch, batch_size=batch_size, lr_decay = lr_decay, mos=mos)
-
-
-    # resume
-    generator.tt = 0.5
-    path = load_path+'models/gnn.pt'
-    data = torch.load(path)
-    gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
-    gnn.load_state_dict(data['model'])
-    optimizer = get_optimizer(gnn,lr,optimizer_name)
-    optimizer.load_state_dict(data['optimizer'])
-    start_epoch = data['epoch']
-    logger.loss_train = data['loss']
-    logger.overlap_train = data['overlap']
-    train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=380003, start_epoch=start_epoch, batch_size=batch_size, lr_decay = lr_decay, mos=mos)
+# elif mode == 'curriculum':
+#     generator.tt = 1.0
+#     gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
+#     weight_initializer = get_initializer(initializer, activation_name)
+#     gnn.apply(weight_initializer)
+#     optimizer = get_optimizer(gnn,lr,optimizer_name)
+#     train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=20003, batch_size=batch_size, lr_decay = lr_decay, mos=mos)
+#
+#     # resume
+#     generator.tt = 0.9
+#     path = load_path+'models/gnn.pt'
+#     data = torch.load(path)
+#     gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
+#     gnn.load_state_dict(data['model'])
+#     optimizer = get_optimizer(gnn,lr,optimizer_name)
+#     optimizer.load_state_dict(data['optimizer'])
+#     start_epoch = data['epoch']
+#     logger.loss_train = data['loss']
+#     logger.overlap_train = data['overlap']
+#     train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=50003, start_epoch=start_epoch, batch_size=batch_size, lr_decay = lr_decay, mos=mos)
+#
+#     # resume
+#     generator.tt = 0.8
+#     path = load_path+'models/gnn.pt'
+#     data = torch.load(path)
+#     gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
+#     gnn.load_state_dict(data['model'])
+#     optimizer = get_optimizer(gnn,lr,optimizer_name)
+#     optimizer.load_state_dict(data['optimizer'])
+#     start_epoch = data['epoch']
+#     logger.loss_train = data['loss']
+#     logger.overlap_train = data['overlap']
+#     train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=100003, start_epoch=start_epoch, batch_size=batch_size, lr_decay = lr_decay, mos=mos)
+#
+#     # resume
+#     generator.tt = 0.7
+#     path = load_path+'models/gnn.pt'
+#     data = torch.load(path)
+#     gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
+#     gnn.load_state_dict(data['model'])
+#     optimizer = get_optimizer(gnn,lr,optimizer_name)
+#     optimizer.load_state_dict(data['optimizer'])
+#     start_epoch = data['epoch']
+#     logger.loss_train = data['loss']
+#     logger.overlap_train = data['overlap']
+#     train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=180003, start_epoch=start_epoch, batch_size=batch_size, lr_decay = lr_decay, mos=mos)
+#
+#     # resume
+#     generator.tt = 0.6
+#     path = load_path+'models/gnn.pt'
+#     data = torch.load(path)
+#     gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
+#     gnn.load_state_dict(data['model'])
+#     optimizer = get_optimizer(gnn,lr,optimizer_name)
+#     optimizer.load_state_dict(data['optimizer'])
+#     start_epoch = data['epoch']
+#     logger.loss_train = data['loss']
+#     logger.overlap_train = data['overlap']
+#     train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=280003, start_epoch=start_epoch, batch_size=batch_size, lr_decay = lr_decay, mos=mos)
+#
+#
+#     # resume
+#     generator.tt = 0.5
+#     path = load_path+'models/gnn.pt'
+#     data = torch.load(path)
+#     gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
+#     gnn.load_state_dict(data['model'])
+#     optimizer = get_optimizer(gnn,lr,optimizer_name)
+#     optimizer.load_state_dict(data['optimizer'])
+#     start_epoch = data['epoch']
+#     logger.loss_train = data['loss']
+#     logger.overlap_train = data['overlap']
+#     train(gnn, optimizer, generator, logger, loss_name=loss_name, pos_weight=pos_weight, iterations=380003, start_epoch=start_epoch, batch_size=batch_size, lr_decay = lr_decay, mos=mos)
 
 # test
 t1 = time.time()
@@ -257,7 +261,9 @@ model_path = 'gnn.pt'
 load_path = load_path+'models/' + model_path
 load_data = torch.load(load_path)
 gnn = gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
+gnn2 = gnn = get_model(model_name, num_layers, num_features, num_classes, J+extra_ops, Jd+extra_ops, track, normalizer_name, line_on, check_activation, reduction, activation_name, inter_factor).to(device)
 gnn.load_state_dict(load_data['model'])
-test(gnn,generator,logger)
+gnn2.load_state_dict(load_data['model2'])
+test(gnn, gnn2, generator, logger)
 print('Test finished.')
 print('Total Testing Time Spent: ', time.time()-t1)

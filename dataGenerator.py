@@ -10,7 +10,8 @@ import os.path
 import pdb
 import time
 from multiprocessing import Pool
-from sparsify import UniformEdges
+from sparsify import Phase2Edges
+
 import matplotlib.pyplot as plt
 dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -42,15 +43,15 @@ class dataGenerator:
         N = self.N
         edges = H.nonzero().to(device)
         E = self.M
-        Pd = torch.zeros((N,E),device=device)  # oriented
+        # Pd = torch.zeros((N,E),device=device)  # oriented
         B = torch.zeros((E,E),device=device)
         row, col = edges.t()[0], edges.t()[1]
         for i in range(E):
             if i == E-1:
                 u = row[i]
                 mask_plus, mask_minus = (row==u).to(device), (col==u).to(device)
-                Pd[u][mask_plus]  =  1
-                Pd[u][mask_minus] = -1
+                # Pd[u][mask_plus]  =  1
+                # Pd[u][mask_minus] = -1
                 loc_target_u = (row ==u).to(device)
                 val_target_u = col.clone().to(device)
                 val_target_u[~loc_target_u] = 0
@@ -71,8 +72,8 @@ class dataGenerator:
                 else:
                     u = row[i]
                     mask_plus, mask_minus = (row==u).to(device), (col==u).to(device)
-                    Pd[u][mask_plus]  =  1
-                    Pd[u][mask_minus] = -1
+                    # Pd[u][mask_plus]  =  1
+                    # Pd[u][mask_minus] = -1
                     loc_target_u = (row == u).to(device)
                     val_target_u = col.clone().to(device)
                     val_target_u[~loc_target_u] = 0
@@ -89,10 +90,10 @@ class dataGenerator:
                     B[i] = loc_source_v.int().clone().to(device)
         perm = torch.randperm(E)
         B = B[perm].to(device).contiguous()
-        Pm = torch.abs(Pd).to(device)
-        P  = torch.stack((Pm,Pd),1).transpose(1,2)
-        P  = P[:,perm].to(device).contiguous()
-        return B, P
+        # Pm = torch.abs(Pd).to(device)
+        # P  = torch.stack((Pm,Pd),1).transpose(1,2)
+        # P  = P[:,perm].to(device).contiguous()
+        return B#, P
 
     def compute_ops_B_prime(self, deg, W):
         N, M, bs = self.N, self.M, self.batch_size
@@ -167,7 +168,7 @@ class dataGenerator:
         clique_labeling=clique_labeling.to(device, dtype=torch.float)
         OP, deg = self.get_maps(W, J)
 
-        if self.line_on: # line graph ops
+        # if self.line_on: # line graph ops
 
             # for uniform random edge selection
             # sparsifier = UniformEdges(M).to(device)
@@ -180,25 +181,44 @@ class dataGenerator:
             # OPd, degd = self.get_maps(Wd, Jd)
 
 
-            # using B' : https://arxiv.org/pdf/1306.5550.pdf
-            M = 2*N
-            self.M = 2*N
-            Wd = self.compute_ops_B_prime(deg, W)
-            P = torch.zeros((bs,N,M,2),device=device).to(device) # will be 0 at all.
-            OPd, degd = self.get_maps(Wd, Jd)
-            # OP [bs, N, N, J+extra_ops]
-            # deg [bs, 1, N, 1]
-            # OPd [bs, M, M, Jd+extra_ops]
-            # P [bs, N, M, 2]
-            # degd [bs, 1, M, 1]
-            # cliq [bs, N]
-            return [OP, deg, OPd, P, degd], clique_labeling
+            # # using B' : https://arxiv.org/pdf/1306.5550.pdf
+            # M = 2*N
+            # self.M = 2*N
+            # Wd = self.compute_ops_B_prime(deg, W)
+            # P = torch.zeros((bs,N,M,2),device=device).to(device) # will be 0 at all.
+            # OPd, degd = self.get_maps(Wd, Jd)
+            # # OP [bs, N, N, J+extra_ops]
+            # # deg [bs, 1, N, 1]
+            # # OPd [bs, M, M, Jd+extra_ops]
+            # # P [bs, N, M, 2]
+            # # degd [bs, 1, M, 1]
+            # # cliq [bs, N]
+            # return [OP, deg, OPd, P, degd], clique_labeling
+
+        # sparsifier = Phase2Edges(M).to(device)
+        # Wd = torch.zeros((bs,M,M),device=device)
+        # for i in range(bs): # sparsify and get ops for line graph GNN
+        #     H = sparsifier.sparsify(W[i]).to(device)
+
         # return below if line_off
         return [OP, deg], clique_labeling
 
     def sample_batch(self, batch_size, is_training=True):
         self.batch_size = batch_size
         return self.create_dataset(is_training)
+
+    def sparsify_and_sample(self, pred):
+        M = self.M
+        bs = self.batch_size
+        Jd = self.Jd
+        sparsifier = Phase2Edges(M)
+        Wd = torch.zeros((bs,M,M),device=device)
+        for i in range(bs):
+            H = sparsifier.sparsify(pred)
+            Wd[i] = self.compute_ops(H)
+        OPd, degd = self.get_maps(Wd, Jd)
+        return [OPd.to(device), degd.to(device)]
+
 
 
 

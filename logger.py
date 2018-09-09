@@ -48,25 +48,28 @@ class Logger(object):
         # self.loss = get_loss_function(loss_name, pos_weight)
         self.writer = tf.summary.FileWriter(log_dir)
         self.loss_train = []
-        self.loss_test = []
+        self.loss_train2 = []
         self.overlap_train = []
-        self.overlap_test = []
+        self.overlap_train2 = []
         self.args = {}
 
     def add_train_loss(self, loss, iter_count):
         self.loss_train.append(loss.item())
         self.scalar_summary('loss', loss.item(), iter_count+1)
 
-    # def add_test_loss(self, loss):
-    #     self.loss_test.append(loss.data.cpu().numpy())
+    def add_train_loss2(self, loss, iter_count):
+        self.loss_train2.append(loss.item())
+        self.scalar_summary('loss2', loss.item(), iter_count+1)
 
     def add_train_overlap(self, pred, labels, iter_count):
         overlap = compute_overlap(pred, labels)
         self.overlap_train.append(overlap)
         self.scalar_summary('overlap', overlap, iter_count+1)
 
-    # def add_test_overlap(self, pred, labels):
-    #     self.overlap_test.append(compute_overlap(pred, labels))
+    def add_train_overlap2(self, pred, labels, iter_count):
+        overlap = compute_overlap(pred, labels)
+        self.overlap_train2.append(overlap)
+        self.scalar_summary('overlap2', overlap, iter_count+1)
 
     def write_settings(self, args):
         with open(args.save_path+"experiment_settings.txt", "w") as f:
@@ -78,7 +81,7 @@ class Logger(object):
 
 
 
-    def save_model(self, model,optim,epoch,batch_size):
+    def save_model(self, model, model2, optim, optim2, epoch, batch_size):
         self.epoch = epoch
         self.batch_size = batch_size
         try:
@@ -96,7 +99,9 @@ class Logger(object):
         path = os.path.join(save_dir, filename)
 
         data = {'model':model.state_dict(),
+                'model2': model2.state_dict(),
                 'optimizer':optim.state_dict(),
+                'optimizer2':optim2.state_dict(),
                 'epoch':epoch+1,
                 'loss':self.loss_train,
                 'overlap':self.overlap_train
@@ -122,8 +127,10 @@ class Logger(object):
         path = os.path.join(save_dir, filename)
         np.savez(path,
                  loss_train=np.array(self.loss_train),
+                 loss_train2=np.array(self.loss_train2),
                  # loss_test=np.array(self.loss_test),
-                 overlap_train = np.array(self.overlap_train)
+                 overlap_train = np.array(self.overlap_train),
+                 overlap_train2 = np.array(self.overlap_train2)
                  # overlap_test = np.array(self.overlap_test)
                  )
         # if self.batch_size > 1:

@@ -44,7 +44,7 @@ class Phase2Edges(nn.Module):
         # output: H, sparsified adjacency matrix
 
         # pred shape =  [1, N]
-        N = len(pred)
+        N = pred.shape[1]
         pred = pred.squeeze()
         pred = torch.ger(pred, pred).to(device)
         # to kill diagonal entries

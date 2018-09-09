@@ -279,6 +279,7 @@ class WeightedBCEWithLogitsLoss(nn.Module):
         target = (target.contiguous().view(-1)).to(torch.float)
         max_val = (-input).clamp(min=0)
         # loss = input - input * target + max_val + ((-max_val).exp() + (-input - max_val).exp()).log()
+        pdb.set_trace()
         loss = input - input*target + (max_val + ((-max_val).exp() + (-input - max_val).exp()).log())*(1+(self.pos_weight-1)*target)
         return loss.mean()
 
@@ -367,6 +368,9 @@ def get_model(model_name, num_layers, num_features, num_classes, J, Jd, track, n
     elif model_name == 'dense4':
         from dense_4 import DenseGNN_4
         return DenseGNN_4(num_layers, num_features, num_classes, J, reduction, track, normalizer_name, activation_name, inter_factor).to(device)
+    elif model_name == 'dense42':
+        from dense_4 import DenseGNN_42
+        return DenseGNN_42(num_layers, num_features, num_classes, Jd, reduction, track, normalizer_name, activation_name, inter_factor).to(device)
     elif model_name == 'dense5':
         from dense_5 import DenseGNN_5
         return DenseGNN_5(num_layers, num_features, num_classes, J, reduction, track, normalizer_name, activation_name, inter_factor).to(device)
