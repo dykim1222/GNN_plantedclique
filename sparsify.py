@@ -64,7 +64,6 @@ class Phase2Edges(nn.Module):
 if __name__=='__main__':
     sparsifier = Phase2Edges(20)
     pred = torch.abs(torch.rand(6))
-    pdb.set_trace()
     H = sparsifier.sparsify(pred)
 
 

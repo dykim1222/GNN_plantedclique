@@ -66,6 +66,17 @@ class ConvLayer(nn.Module):
         x = self.conv(x)
         return W, x
 
+class LastLayer(nn.Module):
+    def __init__(self):
+        super(LastLayer, self).__init__()
+        self.conv = nn.Conv2d(2, 1, 1).to(device)
+
+    def forward(self, input, P):
+        input = gmul(P.transpose(1,2), input[1])
+        input = self.conv(input)
+        return input
+
+
 class DenseGNN_4(nn.Module):
     def __init__(self, num_layers, num_features, num_classes, J, reduction, track, normalizer_name, activation_name, inter_factor):
         super(DenseGNN_4, self).__init__()
@@ -107,6 +118,55 @@ class DenseGNN_4(nn.Module):
         input = self.trans3(self.dense3(input))
         input = self.last_layer(input)
         input = input[1].squeeze(3).transpose(1,2).squeeze(2).contiguous().to(device)
+        return input
+
+class DenseGNN_42(nn.Module):
+    def __init__(self, num_layers, num_features, num_classes, J, reduction, track, normalizer_name, activation_name, inter_factor):
+        super(DenseGNN_42, self).__init__()
+        num_blocks = ((num_layers-4)//3)//2
+        num_channels = num_features
+        self.first_layer = ConvLayer(J, 1, num_channels)
+
+        self.dense1 =  self.make_dense(J, num_channels, num_features, num_blocks, track, normalizer_name, activation_name, inter_factor)
+        num_channels += num_blocks * num_features
+        num_out_channels = int(math.floor(num_channels*reduction))
+        self.trans1 = Transition(J, num_channels, num_out_channels, track, normalizer_name, activation_name)
+
+        num_channels = num_out_channels
+        self.dense2 = self.make_dense(J, num_channels, num_features, num_blocks, track, normalizer_name, activation_name, inter_factor)
+        num_channels += num_blocks * num_features
+        num_out_channels = int(math.floor(num_channels*reduction))
+        self.trans2 = Transition(J, num_channels, num_out_channels, track, normalizer_name, activation_name)
+
+        num_channels = num_out_channels
+        self.dense3 = self.make_dense(J, num_channels, num_features, num_blocks, track, normalizer_name, activation_name, inter_factor)
+        num_channels += num_blocks * num_features
+        num_out_channels = int(math.floor(num_channels*reduction))
+        self.trans3 = Transition(J, num_channels, num_out_channels, track, normalizer_name, activation_name)
+
+        self.last_layer = ConvLayer(J, num_out_channels, num_classes)
+
+        self.last_last_layer = LastLayer()
+
+
+    def make_dense(self, J, num_channels, num_features, num_blocks, track, normalizer_name, activation_name, inter_factor):
+        layers = []
+        for i in range(int(num_blocks)):
+            layers.append(Bottleneck(J, num_channels, num_features, track, normalizer_name, activation_name, inter_factor))
+            num_channels += num_features
+        return nn.Sequential(*layers)
+
+    def forward(self, input):
+        P = input[2]
+
+        input = [input[0], input[1]]
+        input = self.first_layer(input)
+        input = self.trans1(self.dense1(input))
+        input = self.trans2(self.dense2(input))
+        input = self.trans3(self.dense3(input))
+        input = self.last_layer(input)          # [1,1,M,1]
+        input = self.last_last_layer(input, P)
+        input = input.squeeze(3).transpose(1,2).squeeze(2).contiguous().to(device) # shape [1, N]
         return input
 
 

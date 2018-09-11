@@ -77,7 +77,7 @@ def train(model, model2, optim, optim2, generator, logger, loss_name, pos_weight
                 compute_overlap(pred,labels),
                 t2-t1))
             elif batch_size == 1:
-                print('Mode: Train || K: {:<4} It: {:<7} Ls: {:<10.5f} Ls2: {:<10.5f} OvLp: {:<10.5f} OvLp: {:<10.5f} T: {:<7.2f}'.format(
+                print('Mode: Train || K: {:<4} It: {:<7} Ls: {:<10.5f} Ls2: {:<10.5f} OvLp: {:<10.5f} OvLp2: {:<10.5f} T: {:<7.2f}'.format(
                 int(labels.sum().item()),
                 iter_count,
                 loss.item(),

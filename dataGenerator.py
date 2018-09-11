@@ -43,15 +43,15 @@ class dataGenerator:
         N = self.N
         edges = H.nonzero().to(device)
         E = self.M
-        # Pd = torch.zeros((N,E),device=device)  # oriented
+        Pd = torch.zeros((N,E),device=device)  # oriented
         B = torch.zeros((E,E),device=device)
         row, col = edges.t()[0], edges.t()[1]
         for i in range(E):
             if i == E-1:
                 u = row[i]
                 mask_plus, mask_minus = (row==u).to(device), (col==u).to(device)
-                # Pd[u][mask_plus]  =  1
-                # Pd[u][mask_minus] = -1
+                Pd[u][mask_plus]  =  1
+                Pd[u][mask_minus] = -1
                 loc_target_u = (row ==u).to(device)
                 val_target_u = col.clone().to(device)
                 val_target_u[~loc_target_u] = 0
@@ -72,8 +72,8 @@ class dataGenerator:
                 else:
                     u = row[i]
                     mask_plus, mask_minus = (row==u).to(device), (col==u).to(device)
-                    # Pd[u][mask_plus]  =  1
-                    # Pd[u][mask_minus] = -1
+                    Pd[u][mask_plus]  =  1
+                    Pd[u][mask_minus] = -1
                     loc_target_u = (row == u).to(device)
                     val_target_u = col.clone().to(device)
                     val_target_u[~loc_target_u] = 0
@@ -90,10 +90,10 @@ class dataGenerator:
                     B[i] = loc_source_v.int().clone().to(device)
         perm = torch.randperm(E)
         B = B[perm].to(device).contiguous()
-        # Pm = torch.abs(Pd).to(device)
-        # P  = torch.stack((Pm,Pd),1).transpose(1,2)
-        # P  = P[:,perm].to(device).contiguous()
-        return B#, P
+        Pm = torch.abs(Pd).to(device)
+        P  = torch.stack((Pm,Pd),1).transpose(1,2)
+        P  = P[:,perm].to(device).contiguous()
+        return B, P
 
     def compute_ops_B_prime(self, deg, W):
         N, M, bs = self.N, self.M, self.batch_size
@@ -208,16 +208,20 @@ class dataGenerator:
         return self.create_dataset(is_training)
 
     def sparsify_and_sample(self, pred):
+
         M = self.M
+        N = int(M/2)
         bs = self.batch_size
         Jd = self.Jd
         sparsifier = Phase2Edges(M)
-        Wd = torch.zeros((bs,M,M),device=device)
+        Wd = torch.zeros((bs,M,M),device=device).to(device)
+        P = torch.zeros((bs,N,M,2),device=device).to(device)
         for i in range(bs):
             H = sparsifier.sparsify(pred)
-            Wd[i] = self.compute_ops(H)
+            Wd[i], P[i] = self.compute_ops(H)
         OPd, degd = self.get_maps(Wd, Jd)
-        return [OPd.to(device), degd.to(device)]
+
+        return [OPd.to(device), degd.to(device), P.to(device)]
 
 
 

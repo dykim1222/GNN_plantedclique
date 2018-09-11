@@ -27,7 +27,6 @@ device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 #         # input = input.to(device).transpose(1,2)   # input dim [bs, 1, N]
 #         input = self.fc(input)  # now [bs, 1, 3*k]
 #         # input = input.squeeze() # now [bs, 3*k]
-#         # pdb.set_trace()
 #         input = input.view(input.shape[0], self.k, 3)  # now [bs, k, 3]
 #         Y, w = input[:,:,1:], input[:,:,0]  # Y=[bs, k, num_clas], w=[bs, k]
 #         w = F.softmax(w, 1).unsqueeze(1)
@@ -279,7 +278,6 @@ class WeightedBCEWithLogitsLoss(nn.Module):
         target = (target.contiguous().view(-1)).to(torch.float)
         max_val = (-input).clamp(min=0)
         # loss = input - input * target + max_val + ((-max_val).exp() + (-input - max_val).exp()).log()
-        pdb.set_trace()
         loss = input - input*target + (max_val + ((-max_val).exp() + (-input - max_val).exp()).log())*(1+(self.pos_weight-1)*target)
         return loss.mean()
 
