@@ -17,11 +17,12 @@ from model import *
 from logger import *
 from trainer import train, test
 import time
-nsml_avail = True
-try:
-    import nsml
-except:
-    nsml_avail = False
+# nsml_avail = True
+# try:
+#     import nsml
+# except:
+#     nsml_avail = False
+
 
 # set seed and device
 npr.seed(1)
@@ -29,7 +30,6 @@ torch.manual_seed(1)
 torch.cuda.manual_seed_all(1)
 dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
 parser = argparse.ArgumentParser()
 ####################################################################################
 ####################################################################################
